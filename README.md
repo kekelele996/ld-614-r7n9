@@ -12,7 +12,28 @@ cp .env.example .env && docker compose up -d
 
 后端健康检查：<http://localhost:21114/health>
 
-后端健康检查：<http://localhost:21114/health>
+批次放行（仅质量经理，通过 `X-Role` / `X-User` 请求头标识）：
+
+```bash
+# 提交放行结论：RELEASED 或 CONDITIONAL_RELEASED（有条件放行必须带 restrictionNote）
+curl -X POST http://localhost:21114/api/batches/BATCH-OK-001/release \
+  -H 'Content-Type: application/json' \
+  -H 'X-Role: QUALITY_MANAGER' -H 'X-User: manager-li' \
+  -d '{"decision":"RELEASED"}'
+
+# 查询批次放行记录
+curl http://localhost:21114/api/batches/BATCH-OK-001/release
+
+# 批次全链路追溯树（含放行结论、限制说明及对应依据）
+curl http://localhost:21114/api/trace/BATCH-OK-001
+```
+
+### 批次质量放行规则
+
+- 存在未关闭的重大（MAJOR）或严重（CRITICAL）不良，或最近检验为不合格（FAIL）/待复检（RECHECK）时拒绝放行，响应 `422` 并返回全部阻塞项 `blockers`。
+- 一般（MINOR）不良已关闭且最近检验为让步接收（CONDITIONAL_PASS）时，仅允许有条件放行（CONDITIONAL_RELEASED），且必须填写限制说明 `restrictionNote`。
+- 放行成功记录放行人与放行时间；同一批次重复或并发提交只有一笔生效，其余返回 `409 RELEASE_ALREADY_EXISTS`。
+- 放行失败时批次、不良与放行记录全部保持原样；追溯查询 `GET /api/trace/{batchNo}` 展示放行结论、限制说明及对应依据。
 
 
 ## 本地开发方式
@@ -57,6 +78,10 @@ backend/src/routes, controllers, services, models, repositories, middlewares, co
 - WorkOrderStatus: constants/WorkOrderStatus、types/WorkOrderStatus、constructors、logTemplates、errorMessages、筛选器、展示组件/控制器均有引用。
 - InspectionResultStatus: constants/InspectionResultStatus、types/InspectionResultStatus、constructors、logTemplates、errorMessages、筛选器、展示组件/控制器均有引用。
 - DefectSeverity: constants/DefectSeverity、types/DefectSeverity、constructors、logTemplates、errorMessages、筛选器、展示组件/控制器均有引用。
+- ReleaseDecision（RELEASED / CONDITIONAL_RELEASED）: constants/ReleaseDecision、validators/BatchReleaseValidator、services/BatchReleaseService、constructors/BatchReleaseDtoFactory、utils/Formatters、logTemplates、errorMessages。
+- DispositionStatus（OPEN / DISPOSED / CLOSED）: constants/DispositionStatus、services/BatchReleaseService、utils/Formatters、repositories/DefectRecordRepository（种子数据）。
+- BatchStatus（CREATED / IN_INSPECTION / ON_HOLD / RELEASED / CONDITIONAL_RELEASED）: constants/BatchStatus、services/BatchReleaseService、repositories/ProductBatchRepository、utils/Formatters。
+- UserRole（INSPECTOR / LINE_SUPERVISOR / QUALITY_MANAGER / AUDITOR）: constants/UserRole、middlewares/RbacMiddleware、controllers/BatchReleaseController。
 
 ## 为什么会牵一发动全身
 

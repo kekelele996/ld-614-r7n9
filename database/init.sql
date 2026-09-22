@@ -50,6 +50,17 @@ CREATE TABLE IF NOT EXISTS defect_record (
   disposition_status TEXT
 );
 
+CREATE TABLE IF NOT EXISTS batch_release (
+  id INTEGER PRIMARY KEY,
+  batch_id TEXT,
+  batch_no TEXT,
+  decision TEXT,
+  restriction_note TEXT,
+  released_by TEXT,
+  released_at TEXT,
+  basis TEXT
+);
+
 CREATE TABLE IF NOT EXISTS audit_log (
   id INTEGER PRIMARY KEY,
   actor TEXT,
